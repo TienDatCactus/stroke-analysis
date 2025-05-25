@@ -1,0 +1,176 @@
+import joblib
+import numpy as np
+import pandas as pd
+import json
+import logging
+import traceback
+import warnings
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, 
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('stroke_prediction')
+
+def predict_new_data(link_new_data, model_path):
+    """
+    Predict the label for new data using the trained model.
+    :param link_new_data: Path to the Excel file containing the new data to predict.
+    :param model_path: Path to the trained model file.
+    :return: Predicted labels and additional information.
+    """
+    import warnings  # Import warnings within function scope
+    
+    try:
+        logger.info(f"Loading data from: {link_new_data}")
+        new_data = pd.read_excel(link_new_data)
+        logger.info(f"Data loaded successfully with {new_data.shape[0]} rows and {new_data.shape[1]} columns")# Replace null values with a compatible approach
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=FutureWarning)
+            new_data.replace(['#NULL!', 'NULL', 'NA'], 0, inplace=True)
+
+        # Columns that should be dropped for prediction
+        columns_to_drop = [
+            "Dizzy", "hearing loss", "Horizontal diplopia", "Vertical diplopia", 
+            "Other double vision", "Headache", "Loss of vision", "Memory disorder",
+            "corresponding intracranial occlusion site ICA", 
+            "corresponding intracranial occlusion site MCA", 
+            "corresponding intracranial occlusion site BA", 
+            "corresponding intracranial occlusion site ACA", 
+            "corresponding intracranial occlusion site P2", 
+            "corresponding intracranial occlusion site PCA",
+            "anticoagulant vitamin K", "apixaban", "dabigatran", "rivaroxaban",
+            "Statin intensity level", "diabetes medication treatment", 
+            "hypertension medication treatment", "Days in hospital", 
+            "stroke recurrence within 30 days", "stroke recurrence within 90 days"
+        ]
+        
+        # Get list of columns actually in the dataframe
+        columns_to_drop_existing = [col for col in columns_to_drop if col in new_data.columns]
+        if len(columns_to_drop) != len(columns_to_drop_existing):
+            logger.warning(f"Some columns to drop weren't found in the data. Expected: {len(columns_to_drop)}, Found: {len(columns_to_drop_existing)}")
+            
+        # Drop unnecessary columns
+        new_data = new_data.drop(columns=columns_to_drop_existing, errors='ignore')
+        
+        # Clean data
+        df_cleaned = new_data.fillna(0)
+        df_cleaned.columns = df_cleaned.columns.str.lower()
+        
+        # Drop any identifier columns
+        id_columns = ['end', 'no.']
+        id_columns_existing = [col for col in id_columns if col in df_cleaned.columns]
+        
+        # Select only numerical data
+        data = df_cleaned.drop(columns=id_columns_existing, errors='ignore').select_dtypes(include=['number'])
+        
+        # Log the features being used
+        logger.info(f"Using {data.shape[1]} features for prediction: {', '.join(data.columns)}")
+        
+        # Convert to numpy array for prediction
+        X_new = data.to_numpy()        # Load model and make predictions
+        logger.info(f"Loading model from: {model_path}")
+        try:
+            # Temporarily suppress scikit-learn version warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=UserWarning)
+                random_forest = joblib.load(model_path)
+            logger.info("Model loaded successfully")
+        except Exception as e:
+            logger.error(f"Error loading model: {str(e)}")
+            raise
+            
+        predictions = random_forest.predict(X_new)
+        
+        # Convert binary predictions to human-readable labels
+        # 0 for stroke, 1 for no stroke
+        predictions = np.where(predictions == 0, 'Stroke', 'No Stroke')
+        
+        # Create a list of dictionaries with predictions and row numbers
+        result_list = []
+        for idx, prediction in enumerate(predictions):
+            result_list.append({
+                "index": idx + 1,  # 1-based index for user-friendliness
+                "prediction": prediction
+            })
+            
+        logger.info(f"Prediction completed successfully. Results: {len(result_list)} predictions")
+          # Return both the raw predictions array and the structured results
+        return {
+            "success": True,
+            "predictions": predictions.tolist(),
+            "results": result_list
+        }
+    except Exception as e:
+        error_msg = f"Error in prediction: {str(e)}"
+        logger.error(error_msg)
+        logger.error(traceback.format_exc())
+        
+        # Determine the type of error for better frontend handling
+        error_code = "UNKNOWN_ERROR"
+        missing_columns = None
+        data_type_issues = None
+        
+        error_text = str(e).lower()
+        if "keyerror" in error_text or "no column" in error_text or "missing" in error_text:
+            error_code = "MISSING_COLUMNS"
+            # Try to extract missing column names from error message
+            import re
+            column_matches = re.findall(r"['\"](.*?)['\"]", str(e))
+            if column_matches:
+                missing_columns = column_matches
+        elif "could not convert" in error_text or "invalid literal" in error_text or "dtype" in error_text:
+            error_code = "INVALID_DATA_TYPE"
+            # Extract column with data type issues if possible
+            if hasattr(e, "column") and hasattr(e, "expected_type"):
+                data_type_issues = [{
+                    "column": getattr(e, "column", "unknown"),
+                    "expectedType": str(getattr(e, "expected_type", "number")),
+                    "receivedType": str(getattr(e, "received_type", "text"))
+                }]
+        elif "file format" in error_text or "read_excel" in error_text or "parse" in error_text:
+            error_code = "FILE_FORMAT_ERROR"
+        elif "model" in error_text or "predict" in error_text or "sklearn" in error_text:
+            error_code = "MODEL_ERROR"
+        
+        return {
+            "success": False,
+            "error": error_msg,
+            "errorCode": error_code,
+            "missingColumns": missing_columns,
+            "dataTypeIssues": data_type_issues,
+            "predictions": [],
+            "results": []
+        }
+
+def predict_new_data_cli(link_new_data, model_path):
+    """
+    CLI wrapper for predict_new_data that outputs JSON to stdout.
+    This makes it easier to call from Node.js/Next.js.
+    """
+    result = predict_new_data(link_new_data, model_path)
+    print(json.dumps(result))
+    return result
+
+# For command-line usage
+if __name__ == "__main__":
+    import sys
+    
+    # Print Python version information for debugging
+    import platform
+    logger.info(f"Python version: {platform.python_version()}")
+    logger.info(f"Python implementation: {platform.python_implementation()}")
+    
+    # List installed packages for debugging
+    try:
+        import pkg_resources
+        installed_packages = [f"{pkg.key}=={pkg.version}" for pkg in pkg_resources.working_set]
+        logger.info(f"Installed packages: {', '.join(installed_packages[:5])}...")
+    except Exception as e:
+        logger.warning(f"Couldn't list packages: {str(e)}")
+    
+    if len(sys.argv) < 3:
+        print("Usage: python predict.py <excel_file_path> <model_path>")
+        sys.exit(1)
+    
+    result = predict_new_data_cli(sys.argv[1], sys.argv[2])
+    sys.exit(0 if result["success"] else 1)

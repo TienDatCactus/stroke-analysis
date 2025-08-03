@@ -2,25 +2,19 @@
  * Types for stroke prediction API responses
  */
 
+import { PredictionErrorCode } from "./error";
+
 export interface PredictionResult {
   index: number;
   prediction: string;
 }
-
-export type ErrorCode =
-  | "MISSING_COLUMNS"
-  | "INVALID_DATA_TYPE"
-  | "FILE_FORMAT_ERROR"
-  | "MODEL_ERROR"
-  | "PYTHON_ERROR"
-  | "UNKNOWN_ERROR";
 
 export interface PredictionResponse {
   success: boolean;
   predictions: string[];
   results?: PredictionResult[];
   error?: string;
-  errorCode?: ErrorCode;
+  errorCode?: PredictionErrorCode;
   missingColumns?: string[]; // If error is due to missing columns
   dataTypeIssues?: {
     column: string;

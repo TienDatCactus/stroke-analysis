@@ -5,7 +5,7 @@ import fs from "fs";
 import os from "os";
 
 // Helper function to check if Python is available
-const isPythonAvailable = async (): Promise<boolean> => {
+const isPythonAvailable = async (): Promise<JSON> => {
   return new Promise((resolve) => {
     // Try multiple possible Python command names
     const pythonCommands = ["python3", "python", "py"];

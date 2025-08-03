@@ -28,7 +28,6 @@ export async function getPrediction(file: File): Promise<PredictionResponse> {
     const result = await response.json();
     return result;
   } catch (error) {
-    console.error("Prediction error:", error);
     return {
       success: false,
       predictions: [],

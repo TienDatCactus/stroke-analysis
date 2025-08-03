@@ -1,4 +1,5 @@
 "use client";
+import Access from "@/components/Access";
 import { PredictionResults } from "@/components/PredictionResults";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/lib/context/AuthContext";
 import { useFileContext } from "@/lib/context/FileContext";
 import {
   CircleHelp,
@@ -38,7 +40,7 @@ export default function Home() {
     setPredictionResults,
     setPredicting,
   } = useFileContext();
-
+  const { user } = useAuth();
   const clearFile = () => {
     if (file) {
       setFile(null);
@@ -52,6 +54,9 @@ export default function Home() {
   };
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)] z-30">
+      <header className="w-full flex items-center justify-end row-start-1">
+        <Access />
+      </header>
       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
         <div>
           <h1 className="italic text-6xl font-bold font-mono">
@@ -81,10 +86,10 @@ export default function Home() {
               Drop your file here
             </DialogTrigger>
             <DialogContent
-              className={`max-w-md lg:max-w-xl bg-white ${
-                predictionResults &&
+              className={`max-w-md lg:max-w-xl border-none bg-white ${
+                predictionResults?.success &&
                 "lg:h-[90vh] min-w-[90vw] overflow-y-scroll"
-              }`}
+              } ${predictionResults?.error && "min-w-[90vw]"}`}
             >
               {predictionResults ? (
                 <PredictionResults />
@@ -205,7 +210,7 @@ export default function Home() {
                   </div>
                 </>
               )}
-              <DialogFooter className="flex justify-between items-center">
+              <DialogFooter className="flex h-fit justify-between items-center">
                 <div className="flex gap-1 items-center *:text-muted-foreground *:text-sm">
                   <CircleHelp size={18} />
                   <p>Help Center</p>

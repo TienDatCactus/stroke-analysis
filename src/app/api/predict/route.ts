@@ -3,6 +3,8 @@ import { spawn } from "child_process";
 import path from "path";
 import fs from "fs";
 import os from "os";
+import * as XLSX from "xlsx";
+import { FSDB } from "file-system-db";
 
 // Helper function to check if Python is available
 const isPythonAvailable = async (): Promise<JSON> => {
@@ -36,23 +38,25 @@ const isPythonAvailable = async (): Promise<JSON> => {
 };
 
 // Helper function to execute Python script and get results
-const executePythonScript = async (filePath: string): Promise<boolean> => {
+const executePythonScript = async (
+  filePath: string,
+): Promise<PredictionResult> => {
   // Check if Python is available first
   const pythonAvailable = await isPythonAvailable();
   if (!pythonAvailable) {
     throw new Error(
-      "Python is not available. Please install Python to use this feature."
+      "Python is not available. Please install Python to use this feature.",
     );
   }
   return new Promise((resolve, reject) => {
     // Get paths to our existing middleware files
     const pythonScript = path.resolve(
       process.cwd(),
-      "src/middleware/predict.py"
+      "src/middleware/predict.py",
     );
     const modelPath = path.resolve(
       process.cwd(),
-      "src/middleware/random_forest_model.pkl"
+      "src/middleware/random_forest_model.pkl",
     );
 
     // Try multiple possible Python command names
@@ -88,7 +92,7 @@ const executePythonScript = async (filePath: string): Promise<boolean> => {
       } else {
         try {
           // Parse the JSON output from the Python script
-          const jsonResult = JSON.parse(dataString.trim());
+          const jsonResult: PredictionResult = JSON.parse(dataString.trim());
           resolve(jsonResult);
         } catch (error) {
           console.error("Failed to parse Python output:", error);
@@ -133,6 +137,17 @@ export async function POST(req: NextRequest) {
     tempFilePath = await saveTemporaryFile(formData);
     console.log(`File saved temporarily at: ${tempFilePath}`);
 
+    const file = formData.get("file") as File;
+    if (!file) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No file uploaded.",
+        },
+        { status: 400 },
+      );
+    }
+
     // Check if Python is available
     const pythonAvailable = await isPythonAvailable();
     if (!pythonAvailable) {
@@ -144,13 +159,41 @@ export async function POST(req: NextRequest) {
             "Python is not available on the server. Please install Python to use this feature.",
           predictions: [],
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Parse the Excel file
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+
+    // Convert worksheet to JSON (array of rows)
+    const rows = XLSX.utils.sheet_to_json(worksheet, { defval: null });
 
     // Execute Python prediction script
     const result = await executePythonScript(tempFilePath);
     console.log("Prediction completed successfully");
+
+    const timestamp = new Date().toISOString();
+    const predictions = result.predictions;
+
+    // Save to db
+    const db = new FSDB();
+    if (!db.has("analyses")) {
+      db.set("analyses", []);
+    }
+    db.push("analyses", {
+      timestamp: timestamp,
+      results: rows.map((row, i) => ({
+        ...(typeof row === "object" && row !== null ? row : {}),
+        lookupId: Math.floor(1000000 + Math.random() * 9000000),
+        prediction: predictions[i],
+      })),
+    });
 
     // Return the complete result from our Python script
     return NextResponse.json(result);
@@ -163,7 +206,7 @@ export async function POST(req: NextRequest) {
           error instanceof Error ? error.message : "An unknown error occurred",
         predictions: [],
       },
-      { status: 500 }
+      { status: 500 },
     );
   } finally {
     // Clean up temporary file
@@ -176,4 +219,13 @@ export async function POST(req: NextRequest) {
       }
     }
   }
+}
+
+interface PredictionResult {
+  success: boolean;
+  predictions: string[];
+  results: {
+    id: number;
+    prediction: string;
+  }[];
 }

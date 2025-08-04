@@ -12,7 +12,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/lib/context/AuthContext";
 import { useFileContext } from "@/lib/context/FileContext";
 import {
   CircleHelp,
@@ -40,7 +39,6 @@ export default function Home() {
     setPredictionResults,
     setPredicting,
   } = useFileContext();
-  const { user } = useAuth();
   const clearFile = () => {
     if (file) {
       setFile(null);

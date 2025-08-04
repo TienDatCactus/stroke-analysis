@@ -6,10 +6,8 @@ import os from "os";
 import * as XLSX from "xlsx";
 import { FSDB } from "file-system-db";
 
-// Helper function to check if Python is available
-const isPythonAvailable = async (): Promise<JSON> => {
+const isPythonAvailable = async () => {
   return new Promise((resolve) => {
-    // Try multiple possible Python command names
     const pythonCommands = ["python3", "python", "py"];
     let checkedCount = 0;
 
@@ -39,24 +37,24 @@ const isPythonAvailable = async (): Promise<JSON> => {
 
 // Helper function to execute Python script and get results
 const executePythonScript = async (
-  filePath: string,
+  filePath: string
 ): Promise<PredictionResult> => {
   // Check if Python is available first
   const pythonAvailable = await isPythonAvailable();
   if (!pythonAvailable) {
     throw new Error(
-      "Python is not available. Please install Python to use this feature.",
+      "Python is not available. Please install Python to use this feature."
     );
   }
   return new Promise((resolve, reject) => {
     // Get paths to our existing middleware files
     const pythonScript = path.resolve(
       process.cwd(),
-      "src/middleware/predict.py",
+      "src/middleware/predict.py"
     );
     const modelPath = path.resolve(
       process.cwd(),
-      "src/middleware/random_forest_model.pkl",
+      "src/middleware/random_forest_model.pkl"
     );
 
     // Try multiple possible Python command names
@@ -144,7 +142,7 @@ export async function POST(req: NextRequest) {
           success: false,
           error: "No file uploaded.",
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -159,7 +157,7 @@ export async function POST(req: NextRequest) {
             "Python is not available on the server. Please install Python to use this feature.",
           predictions: [],
         },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -206,7 +204,7 @@ export async function POST(req: NextRequest) {
           error instanceof Error ? error.message : "An unknown error occurred",
         predictions: [],
       },
-      { status: 500 },
+      { status: 500 }
     );
   } finally {
     // Clean up temporary file

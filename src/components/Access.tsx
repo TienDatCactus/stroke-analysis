@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/context/AuthContext";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import React from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "./ui/button";
@@ -34,28 +34,41 @@ import {
 import Link from "next/link";
 
 const formSchema = z.object({
+  id: z.string().min(2, {
+    message: "ID must be at least 2 characters.",
+  }),
   username: z.string().min(2, {
     message: "Username must be at least 2 characters.",
   }),
 });
 const Access: React.FC = () => {
+  const [loading, setLoading] = useState(false);
   const { login, user, logout } = useAuth();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      id: "",
       username: "",
     },
   });
 
   // 2. Define a submit handler.
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    login({
-      username: values.username,
-    });
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      setLoading(true);
+      await login({
+        id: values.id,
+        username: values.username,
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   }
   async function onLogout() {
     try {
-      await logout();
+      logout();
     } catch (error) {
       console.error(error);
     }
@@ -100,12 +113,26 @@ const Access: React.FC = () => {
             >
               <FormField
                 control={form.control}
+                name="id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ID</FormLabel>
+                    <FormControl>
+                      <Input placeholder="your id" {...field} />
+                    </FormControl>
+                    <FormDescription>This is your doctor ID.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="username"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Username</FormLabel>
                     <FormControl>
-                      <Input placeholder="the ai master" {...field} />
+                      <Input placeholder="the name" {...field} />
                     </FormControl>
                     <FormDescription>
                       This is your public display name.

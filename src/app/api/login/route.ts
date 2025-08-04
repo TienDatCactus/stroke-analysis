@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
         success: false,
         error: "Unauthorized",
       },
-      { status: 401 },
+      { status: 401 }
     );
   }
 }

@@ -1,9 +1,17 @@
 // src/context/AuthContext.tsx
-import { createContext, useContext, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from "react";
+import { toast } from "sonner";
 
 type UserRole = "DOCTOR" | "ADMIN" | "PATIENT"; // Extendable
 
 interface AuthState {
+  id?: string;
   username: string;
 }
 
@@ -18,10 +26,36 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthState | null>(null);
 
-  const login = (user: AuthState) => {
-    setUser(user);
+  const login = async (user: AuthState) => {
+    try {
+      const resp = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(user),
+      });
+      if (!resp.ok) {
+        toast.error("Wrong ID or username. Please try again.");
+      }
+      const data = await resp.json();
+      localStorage.setItem("user", JSON.stringify(data));
+      setUser(data);
+      toast.success("Login successful!");
+    } catch (error) {
+      toast.error("Login failed. Please try again.");
+    }
   };
-
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+    // Cleanup function to avoid memory leaks
+    return () => {
+      setUser(null);
+    };
+  }, []);
   const logout = () => {
     setUser(null);
   };

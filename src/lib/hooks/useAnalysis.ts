@@ -135,6 +135,7 @@ export type AnalysisResult = {
   prediction: string;
 };
 const useAnalysis = () => {
+  const [dataLoading, setDataLoading] = React.useState(false);
   const [analysisData, setAnalysisData] = React.useState<
     {
       timestamp: string;
@@ -144,6 +145,7 @@ const useAnalysis = () => {
 
   const fetchAnalysis = async () => {
     try {
+      setDataLoading(true);
       const response = await fetch("/api/analysis", {
         method: "GET",
         headers: {
@@ -158,12 +160,17 @@ const useAnalysis = () => {
       setAnalysisData(data);
     } catch (error) {
       console.error(error);
+    } finally {
+      setDataLoading(false);
     }
   };
   useEffect(() => {
     fetchAnalysis();
   }, []);
-  return analysisData;
+  return {
+    analysisData: analysisData,
+    dataLoading: dataLoading,
+  };
 };
 
 export default useAnalysis;

@@ -16,13 +16,18 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ArrowLeftIcon, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
 function CollapsibleTable() {
-  const data = useAnalysis();
-
+  const { analysisData, dataLoading } = useAnalysis();
+  const [loading, setLoading] = useState(false);
   const [detailId, setDetailId] = useState<{ timestamp: string } | null>(null);
   const [currentTab, setCurrentTab] = useState("attempts");
   const [detailData, setDetailData] = useState<{
@@ -31,10 +36,19 @@ function CollapsibleTable() {
   }>();
   useEffect(() => {
     if (detailId) {
-      const detail = data.find((item) => item.timestamp === detailId.timestamp);
-      setDetailData(detail);
+      try {
+        setLoading(true);
+        const detail = analysisData.find(
+          (item) => item.timestamp === detailId.timestamp
+        );
+        setDetailData(detail);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [detailId, data]);
+  }, [detailId, analysisData]);
   const handleShowDetail = (timestamp: string) => {
     setDetailId({ timestamp });
     setCurrentTab(`detail-${timestamp}`);
@@ -57,7 +71,7 @@ function CollapsibleTable() {
               <TabsTrigger value="attempts">Attempts</TabsTrigger>
               {detailId && (
                 <TabsTrigger value={`detail-${detailId.timestamp}`}>
-                  Detail
+                  Detail : {new Date(detailId.timestamp).toLocaleString()}
                 </TabsTrigger>
               )}
             </TabsList>
@@ -73,9 +87,16 @@ function CollapsibleTable() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {!!data &&
-                    data.length > 0 &&
-                    data?.map((item) => (
+                  {dataLoading && (
+                    <TableRow>
+                      <TableCell className="text-center">
+                        <Loader2 className="animate-spin" />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!!analysisData &&
+                    analysisData.length > 0 &&
+                    analysisData?.map((item) => (
                       <TableRow key={item?.timestamp}>
                         <TableCell>
                           {new Date(item.timestamp).toLocaleString()}
@@ -113,6 +134,15 @@ function CollapsibleTable() {
                       <TableHead />
                     </TableRow>
                   </TableHeader>
+                  {loading && (
+                    <TableBody>
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center">
+                          <Loader2 className="animate-spin" />
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  )}
                   {!!detailData &&
                     detailData.results.length > 0 &&
                     detailData.results.map((item) => (

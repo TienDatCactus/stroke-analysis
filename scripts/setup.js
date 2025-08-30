@@ -68,10 +68,8 @@ function installPackages(pythonCmd) {
     }
 
     // Install packages
-    console.log(
-      `Running: ${pythonCmd} -m pip install --user -r requirements.txt`,
-    );
-    execSync(`${pythonCmd} -m pip install --user -r requirements.txt`, {
+    console.log(`Running: ${pythonCmd} -m pip install -r requirements.txt`);
+    execSync(`${pythonCmd} -m pip install -r requirements.txt`, {
       stdio: "inherit",
     });
     console.log("✅ Python packages installed successfully");

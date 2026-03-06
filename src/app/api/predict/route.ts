@@ -8,30 +8,19 @@ import { FSDB } from "file-system-db";
 
 const isPythonAvailable = async () => {
   return new Promise((resolve) => {
-    const pythonCommands = ["python3", "python", "py"];
-    let checkedCount = 0;
+    const python = spawn(process.platform === "win32" ? "python" : "python3", ["--version"]);
 
-    for (const cmd of pythonCommands) {
-      const process = spawn(cmd, ["--version"]);
+    python.on("error", () => {
+      resolve(false); // None of the commands worked
+    });
 
-      process.on("error", () => {
-        checkedCount++;
-        if (checkedCount === pythonCommands.length) {
-          resolve(false); // None of the commands worked
-        }
-      });
-
-      process.on("close", (code) => {
-        if (code === 0) {
-          resolve(true); // This command worked
-        } else {
-          checkedCount++;
-          if (checkedCount === pythonCommands.length) {
-            resolve(false); // All commands failed
-          }
-        }
-      });
-    }
+    python.on("close", (code) => {
+      if (code === 0) {
+        resolve(true); // This command worked
+      } else {
+        resolve(false); // All commands failed
+      }
+    });
   });
 };
 
